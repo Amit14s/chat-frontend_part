@@ -216,11 +216,12 @@ fetchMessages: async (conversationId) => {
 
     const requestId = ++messagesRequestId;
 
+    // Clear previous chat immediately
     set({
-        loading: true,
-        error: null,
         messages: [],
-        currentConversation: conversationId
+        currentConversation: conversationId,
+        loading: true,
+        error: null
     });
 
     try {
@@ -228,26 +229,25 @@ fetchMessages: async (conversationId) => {
             `/chats/conversations/${conversationId}/messages`
         );
 
-        const responseData = data?.data ?? data;
-
-        const messages = Array.isArray(responseData)
-            ? responseData
-            : Array.isArray(responseData?.messages)
-                ? responseData.messages
-                : [];
-
-        // Ignore responses belonging to an older selected conversation.
+        // Ignore an older request
         if (requestId !== messagesRequestId) return null;
 
+        const fetchedMessages =
+            data?.data?.messages ??
+            data?.messages ??
+            [];
+
         set({
-            messages,
+            messages: Array.isArray(fetchedMessages)
+                ? fetchedMessages
+                : [],
             currentConversation: conversationId,
             loading: false
         });
 
-        get().maskMessagesAsRead();
+        await get().maskMessagesAsRead();
 
-        return messages;
+        return fetchedMessages;
 
     } catch (error) {
         if (requestId === messagesRequestId) {
@@ -258,7 +258,6 @@ fetchMessages: async (conversationId) => {
             });
         }
 
-        console.error("Fetch messages error:", error);
         return null;
     }
 },

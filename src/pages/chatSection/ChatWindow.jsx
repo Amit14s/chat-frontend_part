@@ -64,7 +64,7 @@ const ChatWindow = ({ isMobile }) => {
 
     const [selectedFile, setSelectedFile] =
         useState(null);
-
+    const [chatLoading, setChatLoading] = useState(false);
 
     const typingTimeoutRef = useRef(null);
 
@@ -186,38 +186,28 @@ const user = userStore?.user || userStore;
     // FETCH SELECTED CHAT
     // =========================
 
-    useEffect(() => {
+useEffect(() => {
+    const contactId = selectedContact?._id;
 
-        if (
-            selectedContact?._id &&
-            conversations?.data?.length > 0
-        ) {
+    if (!contactId) {
+        return;
+    }
 
-            const conversation =
-                conversations?.data?.find(
-                    (conv) =>
-                        conv.participants.some(
-                            (participant) =>
-                                participant._id ===
-                                selectedContact?._id
-                        )
-                );
+    const conversationList = Array.isArray(conversations?.data)
+        ? conversations.data
+        : [];
 
+    const conversation = conversationList.find((conv) =>
+        conv.participants?.some(
+            (participant) =>
+                String(participant._id || participant) === String(contactId)
+        )
+    );
 
-            if (conversation?._id) {
-
-                fetchMessages(
-                    conversation._id
-                );
-
-            }
-
-        }
-
-    }, [
-        selectedContact,
-        conversations
-    ]);
+    if (conversation?._id) {
+        fetchMessages(conversation._id);
+    }
+}, [selectedContact?._id, conversations, fetchMessages]);
      
     useEffect(() => {
     if (user?._id) {
