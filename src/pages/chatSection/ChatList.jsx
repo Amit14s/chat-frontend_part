@@ -25,17 +25,19 @@ function ChatList({ contacts = [] }) {
       .includes(searchTerms.toLowerCase())
   );
 
-  const getConversation = (contactId) => {
-    const list = conversations?.data || [];
+     const getConversation = (contactId) => {
+        const list = conversations?.data || [];
 
-    return list.find((conversation) =>
-      conversation?.participants?.some(
-        (participant) =>
-          String(participant?._id || participant) ===
-          String(contactId)
-      )
-    );
-  };
+        return list.find(
+            (conversation) =>
+                conversation?.type !== "group" &&
+                conversation?.participants?.some(
+                    (participant) =>
+                        String(participant?._id || participant) ===
+                        String(contactId)
+                )
+        );
+    };
 
   return (
     <div

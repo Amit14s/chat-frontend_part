@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { initializeSocket } from "../../services/chat.service";
 
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
@@ -82,24 +83,26 @@ const ChatWindow = ({ isMobile }) => {
 const user = userStore?.user || userStore;
 
 
-    const {
-    messages,
-    loading,
-    sendMessage,
-    receiveMessage,
-    fetchMessages,
-    fetchConversation,
-    conversations,
-    isUserTyping,
-    startTyping,
-    stopTyping,
-    getUserLastSeen,
-    isUserOnline,
-    deleteMessage,
-    addReaction,
-    cleanup,
-    setCurrentUser,
-} = useChatStore();
+     const {
+        messages,
+        loading,
+        sendMessage,
+        receiveMessage,
+        fetchMessages,
+        fetchConversation,
+        conversations,
+        isUserTyping,
+        startTyping,
+        stopTyping,
+        getUserLastSeen,
+        isUserOnline,
+        deleteMessage,
+        addReaction,
+        cleanup,
+        setCurrentUser,
+        initsocketListners,
+        clearChat,
+    } = useChatStore();
 
 
     const online =
@@ -186,34 +189,64 @@ const user = userStore?.user || userStore;
     // FETCH SELECTED CHAT
     // =========================
 
-useEffect(() => {
-    const contactId = selectedContact?._id;
+    // =========================
+    // FIND THIS CONTACT'S PRIVATE CONVERSATION
+    // =========================
 
-    if (!contactId) {
-        return;
-    }
+    const activeConversationId = useMemo(() => {
+        const contactId = selectedContact?._id;
+        if (!contactId) return null;
 
-    const conversationList = Array.isArray(conversations?.data)
-        ? conversations.data
-        : [];
+        const list = Array.isArray(conversations?.data)
+            ? conversations.data
+            : [];
 
-    const conversation = conversationList.find((conv) =>
-        conv.participants?.some(
-            (participant) =>
-                String(participant._id || participant) === String(contactId)
-        )
-    );
+        const found = list.find(
+            (conv) =>
+                conv?.type !== "group" &&
+                conv?.participants?.some(
+                    (participant) =>
+                        String(participant?._id || participant) ===
+                        String(contactId)
+                )
+        );
 
-    if (conversation?._id) {
-        fetchMessages(conversation._id);
-    }
-}, [selectedContact?._id, conversations, fetchMessages]);
-     
+        return found?._id ? String(found._id) : null;
+    }, [selectedContact?._id, conversations]);
+
+    // =========================
+    // LOAD / CLEAR CHAT WHEN CONTACT CHANGES
+    // =========================
+
     useEffect(() => {
-    if (user?._id) {
-        setCurrentUser(user);
-    }
-}, [user?._id, setCurrentUser]);
+        if (!selectedContact?._id || !activeConversationId) {
+            clearChat(); // no conversation yet: show an empty chat, never the old one
+            return;
+        }
+
+        // already showing this conversation (e.g. after first send): don't reload
+        if (
+            useChatStore.getState().currentConversation ===
+            activeConversationId
+        ) {
+            return;
+        }
+
+        fetchMessages(activeConversationId);
+    }, [selectedContact?._id, activeConversationId, fetchMessages, clearChat]);
+
+    // =========================
+    // CONNECT SOCKET + LISTENERS
+    // =========================
+
+    useEffect(() => {
+        if (!user?._id) return;
+
+        const socket = initializeSocket();
+        if (socket) {
+            initsocketListners(); // safe to call twice, it removes old listeners first
+        }
+    }, [user?._id, initsocketListners]);
 
     // =========================
     // FETCH CONVERSATIONS
@@ -377,17 +410,8 @@ useEffect(() => {
         );
 
         // Include the existing conversation ID when this chat already exists.
-        const existingConversation = Array.isArray(conversations?.data)
-            ? conversations.data.find((conv) =>
-                Array.isArray(conv.participants) &&
-                conv.participants.some((participant) =>
-                    String(participant?._id || participant) === String(selectedContact?._id)
-                )
-            )
-            : null;
-
-        if (existingConversation?._id) {
-            formData.append("conversationId", existingConversation._id);
+               if (activeConversationId) {
+            formData.append("conversationId", activeConversationId);
         }
 
         if (message.trim()) {

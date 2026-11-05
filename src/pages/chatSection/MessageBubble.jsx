@@ -320,52 +320,38 @@ function MessageBubble({
 
                         <div className="max-h-48 overflow-y-auto">
 
-                            {message?.reactions?.map(
-                                (reaction, index) => (
+                            {message?.reactions?.map((reaction, index) => {
+    const reactionUser =
+        typeof reaction?.user === "object" ? reaction.user : null;
+    const isMe =
+        String(reactionUser?._id || reaction?.user) ===
+        String(currentUserId);
 
-                                    <div
-                                        key={
-                                            reaction?.user?._id ||
-                                            index
-                                        }
-                                        className="flex items-center gap-3 py-2"
-                                    >
+    return (
+        <div
+            key={`${reactionUser?._id || reaction?.user || "u"}-${index}`}
+            className="flex items-center gap-3 py-2"
+        >
+            {reactionUser?.profilePicture ? (
+                <img
+                    src={reactionUser.profilePicture}
+                    alt=""
+                    className="w-8 h-8 rounded-full object-cover"
+                />
+            ) : (
+                <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-xs">
+                    ?
+                </div>
+            )}
 
-                                        {/* USER IMAGE */}
+            <span className="text-sm flex-1 truncate">
+                {isMe ? "You" : reactionUser?.username || "User"}
+            </span>
 
-                                        {reaction?.user
-                                            ?.profilePicture ? (
-                                            <img
-                                                src={
-                                                    reaction.user
-                                                        .profilePicture
-                                                }
-                                                alt=""
-                                                className="w-8 h-8 rounded-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-xs">
-                                                ?
-                                            </div>
-                                        )}
-
-                                        {/* USERNAME */}
-
-                                        <span className="text-sm flex-1 truncate">
-                                            {reaction?.user
-                                                ?.username ||
-                                                "Unknown user"}
-                                        </span>
-
-                                        {/* EMOJI */}
-
-                                        <span className="text-lg">
-                                            {reaction?.emoji}
-                                        </span>
-
-                                    </div>
-                                )
-                            )}
+            <span className="text-lg">{reaction?.emoji}</span>
+        </div>
+    );
+})}
 
                         </div>
 
@@ -402,7 +388,17 @@ function MessageBubble({
                     </button>
 
 
-                    {/* DELETE */}
+                   {message?.isDeleted ? (
+    <p className="text-sm italic opacity-60">
+        This message was deleted
+    </p>
+) : (
+    message?.content && (
+        <p className="text-sm sm:text-[15px] whitespace-pre-wrap break-words leading-5">
+            {message.content}
+        </p>
+    )
+)}
 
                     {isSender && (
                         <button

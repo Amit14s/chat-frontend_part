@@ -1,8 +1,7 @@
-
 import { create } from "zustand";
+import { toast } from "react-toastify";
 import { getSocket } from "../services/chat.service";
-import axiosInstance from "../services/url.service";
-
+import axiosInstance from "../services/api";
 const getId = (value) => {
     if (!value) return null;
     return String(typeof value === "object" ? value._id : value);
@@ -25,7 +24,10 @@ export const useChatStore = create((set, get) => ({
     error: null,
 
     setCurrentUser: (user) => set({ currentUser: user }),
-
+        clearChat: () => {
+        messagesRequestId++; // cancel any in-flight message fetch
+        set({ messages: [], currentConversation: null, loading: false });
+    },
     initsocketListners: () => {
         const socket = getSocket();
         if (!socket) return;
@@ -231,7 +233,7 @@ fetchMessages: async (conversationId) => {
 
         // Ignore an older request
         if (requestId !== messagesRequestId) return null;
-
+         getSocket()?.emit("join_conversation", getId(conversationId));
         const fetchedMessages =
             data?.data?.messages ??
             data?.messages ??
@@ -257,7 +259,7 @@ fetchMessages: async (conversationId) => {
                 error: error.response?.data?.message || error.message
             });
         }
-
+    
         return null;
     }
 },
@@ -312,13 +314,28 @@ fetchMessages: async (conversationId) => {
             throw new Error("Invalid message response from server");
         }
 
-        set((state) => ({
-            messages: (Array.isArray(state.messages) ? state.messages : [])
-                .map((msg) =>
-                    msg._id === tempId ? savedMessage : msg
-                )
-        }));
+        const savedId = getId(savedMessage._id);
+        const savedConversationId = getId(
+            savedMessage.conversation || savedMessage.conversationId
+        );
+        
+        set((state) => {
+            const list = Array.isArray(state.messages) ? state.messages : [];
 
+            // drop a socket echo of the same message so it is never doubled
+            const withoutEcho = list.filter(
+                (msg) => getId(msg._id) !== savedId
+            );
+
+            return {
+                messages: withoutEcho.map((msg) =>
+                    msg._id === tempId ? savedMessage : msg
+                ),
+                // first message of a new chat: remember its conversation
+                currentConversation:
+                    state.currentConversation || savedConversationId
+            };
+        })
         await get().fetchConversation();
 
         return savedMessage;
@@ -361,7 +378,14 @@ const exists = currentMessages.some(
 );
 
 let messages = currentMessages;
+           const knownConversation = (get().conversations?.data || []).some(
+            (conv) => getId(conv._id) === messageConversation
+        );
 
+        // brand-new conversation from someone: reload the list
+        if (!knownConversation) {
+            get().fetchConversation();
+        }
             if (isOpen && !exists) {
                 messages = [...messages, message];
             }
@@ -416,7 +440,25 @@ let messages = currentMessages;
         const { currentConversation, currentUser, messages } = get();
 
         if (!currentConversation || !currentUser?._id) return;
+                const resetUnread = (list) =>
+            Array.isArray(list)
+                ? list.map((conv) =>
+                    getId(conv._id) === getId(currentConversation)
+                        ? { ...conv, unreadCount: 0 }
+                        : conv
+                )
+                : list;
 
+        set((state) => ({
+            conversations: {
+                ...state.conversations,
+                data: resetUnread(state.conversations?.data)
+            },
+            conversation: {
+                ...state.conversation,
+                data: resetUnread(state.conversation?.data)
+            }
+        }));
         const socket = getSocket();
 
         if (socket?.connected) {
@@ -502,28 +544,57 @@ let messages = currentMessages;
         }
     },
 
-    addReaction: async (messageId, emoji) => {
+       addReaction: async (messageId, emoji) => {
+        const me = getId(get().currentUser);
+        if (!me || !messageId || !emoji) return null;
+
+        const target = get().messages.find(
+            (msg) => getId(msg._id) === getId(messageId)
+        );
+        const previousReactions = target?.reactions || [];
+
+        const mine = previousReactions.find((r) => getId(r.user) === me);
+        const others = previousReactions.filter((r) => getId(r.user) !== me);
+
+        // same emoji again = remove, different emoji = replace
+        const optimistic =
+            mine?.emoji === emoji
+                ? others
+                : [...others, { user: get().currentUser, emoji }];
+
+        const setReactions = (reactions) =>
+            set((state) => ({
+                messages: state.messages.map((msg) =>
+                    getId(msg._id) === getId(messageId)
+                        ? { ...msg, reactions }
+                        : msg
+                )
+            }));
+
+        setReactions(optimistic);
+
         try {
             const { data } = await axiosInstance.post(
                 `/chats/message/${messageId}/reaction`,
                 { emoji }
             );
 
-            const updated = data.data || data.message || data;
+            const payload = data?.data ?? data;
+            const serverReactions =
+                payload?.reactions ??
+                payload?.message?.reactions ??
+                data?.reactions;
 
-            if (updated.reactions) {
-                set((state) => ({
-                    messages: state.messages.map((msg) =>
-                        getId(msg._id) === getId(messageId)
-                            ? { ...msg, reactions: updated.reactions }
-                            : msg
-                    )
-                }));
+            if (Array.isArray(serverReactions)) {
+                setReactions(serverReactions);
             }
 
-            return updated;
+            return payload;
         } catch (error) {
-            console.error("Reaction failed:", error);
+            setReactions(previousReactions); // roll back
+            toast.error(
+                error.response?.data?.message || "Reaction failed"
+            );
             return null;
         }
     },
