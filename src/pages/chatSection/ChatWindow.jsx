@@ -16,7 +16,8 @@ import {
     FaSmile,
     FaPaperPlane,
     FaTimes,
-    FaImage
+    FaImage,
+    FaUser
 } from "react-icons/fa";
 
 import { FaEllipsisV, FaVideo } from "react-icons/fa";
@@ -861,23 +862,29 @@ const user = userStore?.user || userStore;
                         "
                     >
 
-                        <img
-                            src={
-                                selectedContact?.profilePicture
-                            }
-                            alt={
-                                selectedContact?.username ||
-                                "User"
-                            }
-                            className="
-                                w-11
-                                h-11
-                                rounded-full
-                                object-cover
-                                border-2
-                                border-transparent
-                            "
-                        />
+                        {selectedContact?.profilePicture ? (
+    <img
+        src={selectedContact.profilePicture}
+        alt={selectedContact?.username || "User"}
+        className="w-11 h-11 rounded-full object-cover border-2 border-transparent"
+    />
+) : (
+    <div
+        className={`w-11 h-11 rounded-full flex items-center justify-center ${
+            theme === "dark"
+                ? "bg-gray-700"
+                : "bg-gray-300"
+        }`}
+    >
+        <FaUser
+            className={`text-lg ${
+                theme === "dark"
+                    ? "text-gray-300"
+                    : "text-gray-600"
+            }`}
+        />
+    </div>
+)}
 
 
                         {online && (

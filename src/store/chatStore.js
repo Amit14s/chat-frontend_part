@@ -212,93 +212,106 @@ export const useChatStore = create((set, get) => ({
     },
 
     fetchMessages: async (conversationId) => {
-        if (!conversationId) return null;
+    if (!conversationId) return null;
 
-        set({ loading: true, error: null });
+    set({ loading: true, error: null });
 
-        try {
-            const { data } = await axiosInstance.get(
-                `/chats/conversations/${conversationId}/messages`
-            );
+    try {
+        const { data } = await axiosInstance.get(
+            `/chats/conversations/${conversationId}/messages`
+        );
 
-            const messages = data.data || data.messages || data || [];
+        const result = data?.data ?? data;
 
-            set({
-                messages,
-                currentConversation: conversationId,
-                loading: false
-            });
+        const messages = Array.isArray(result)
+            ? result
+            : Array.isArray(result?.messages)
+                ? result.messages
+                : [];
 
-            await get().maskMessagesAsRead();
+        set({
+            messages,
+            currentConversation: conversationId,
+            loading: false
+        });
 
-            return messages;
-        } catch (error) {
-            set({
-                loading: false,
-                error: error.response?.data?.message || error.message
-            });
-            return null;
-        }
-    },
+        await get().maskMessagesAsRead();
+
+        return messages;
+    } catch (error) {
+        set({
+            loading: false,
+            error: error.response?.data?.message || error.message
+        });
+
+        return null;
+    }
+},
 
     sendMessage: async (formData) => {
-        const senderId = formData.get("senderId");
-        const receiverId = formData.get("receiverId");
-        const conversationId = formData.get("conversationId");
+    const senderId = formData.get("senderId");
+    const receiverId = formData.get("receiverId");
+    const conversationId = formData.get("conversationId");
 
-        const media = formData.get("media");
-        const content = formData.get("content");
+    const media = formData.get("media");
+    const content = formData.get("content");
 
-        const tempId = `temp-${Date.now()}`;
+    const tempId = `temp-${Date.now()}`;
 
-        const optimisticMessage = {
-            _id: tempId,
-            sender: { _id: senderId },
-            receiver: receiverId ? { _id: receiverId } : null,
-            conversation: conversationId || get().currentConversation,
-            content,
-            contentType: media
-                ? media.type?.startsWith("image")
-                    ? "image"
-                    : "video"
-                : "text",
-            imageOrVideoUrl:
-                media && typeof media !== "string"
-                    ? URL.createObjectURL(media)
-                    : null,
-            createdAt: new Date().toISOString(),
-            messageStatus: "sending"
-        };
+    const optimisticMessage = {
+        _id: tempId,
+        sender: { _id: senderId },
+        receiver: receiverId ? { _id: receiverId } : null,
+        conversation: conversationId || get().currentConversation,
+        content,
+        contentType: media
+            ? media.type?.startsWith("image")
+                ? "image"
+                : "video"
+            : "text",
+        imageOrVideoUrl:
+            media && typeof media !== "string"
+                ? URL.createObjectURL(media)
+                : null,
+        createdAt: new Date().toISOString(),
+        messageStatus: "sending"
+    };
+
+    // Add optimistic message
+    set((state) => ({
+        messages: [
+            ...(Array.isArray(state.messages) ? state.messages : []),
+            optimisticMessage
+        ]
+    }));
+
+    try {
+        const { data } = await axiosInstance.post(
+            "/chats/send-message",
+            formData
+        );
+
+        const result = data?.data ?? data;
+        const savedMessage = result?.message ?? result;
+
+        if (!savedMessage?._id) {
+            throw new Error("Invalid message response from server");
+        }
 
         set((state) => ({
-            messages: [...state.messages, optimisticMessage]
-        }));
-
-        try {
-            const { data } = await axiosInstance.post(
-                "/chats/send-message",
-                formData,
-                {
-                    headers: {
-                        "Content-Type": "multipart/form-data"
-                    }
-                }
-            );
-
-            const savedMessage = data.data || data.message || data;
-
-            set((state) => ({
-                messages: state.messages.map((msg) =>
+            messages: (Array.isArray(state.messages) ? state.messages : [])
+                .map((msg) =>
                     msg._id === tempId ? savedMessage : msg
                 )
-            }));
+        }));
 
-            await get().fetchConversation();
+        await get().fetchConversation();
 
-            return savedMessage;
-        } catch (error) {
-            set((state) => ({
-                messages: state.messages.map((msg) =>
+        return savedMessage;
+    } catch (error) {
+        set((state) => ({
+            messages: (Array.isArray(state.messages) ? state.messages : [])
+                .map((msg) =>
                     msg._id === tempId
                         ? {
                             ...msg,
@@ -307,11 +320,11 @@ export const useChatStore = create((set, get) => ({
                         }
                         : msg
                 )
-            }));
+        }));
 
-            throw error;
-        }
-    },
+        throw error;
+    }
+},
 
     receiveMessage: (message) => {
         if (!message?._id) return;
@@ -325,11 +338,15 @@ export const useChatStore = create((set, get) => ({
         const isOpen = currentConversation === messageConversation;
 
         set((state) => {
-            const exists = state.messages.some(
-                (msg) => getId(msg._id) === getId(message._id)
-            );
+            const currentMessages = Array.isArray(state.messages)
+    ? state.messages
+    : [];
 
-            let messages = state.messages;
+const exists = currentMessages.some(
+    (msg) => getId(msg._id) === getId(message._id)
+);
+
+let messages = currentMessages;
 
             if (isOpen && !exists) {
                 messages = [...messages, message];

@@ -2,241 +2,228 @@ import { useState } from "react";
 import useLayoutStore from "../../store/layoutStore";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
-import { FaPlus } from "react-icons/fa6";
-import { FaSearch } from "react-icons/fa";
+import { FaPlus, FaSearch, FaUser } from "react-icons/fa";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
 import AddUser from "./AddUser";
 import { useChatStore } from "../../store/chatStore";
-import UserProfile from "../../components/UserDetail";
 
-function ChatList({ contacts }) {
+function ChatList({ contacts = [] }) {
+  const { selectedContact, setSelectedContact } = useLayoutStore();
+  const { theme } = useThemeStore();
+  const user = useUserStore((state) => state.user);
 
-   const { selectedContact, setSelectedContact } = useLayoutStore();
-   const [showUserProfile, setShowUserProfile] = useState(false);
-   const { theme } = useThemeStore();
-   const { user } = useUserStore();
-   const { conversations, onlineUsers, typingUsers } = useChatStore();
-   const [searchTerms, setSearchTerms] = useState("");
+  const { conversations, onlineUsers, typingUsers } =
+    useChatStore();
 
-   // Add User popup
-   const [showAddUser, setShowAddUser] = useState(false);
+  const [searchTerms, setSearchTerms] = useState("");
+  const [showAddUser, setShowAddUser] = useState(false);
 
-   const filteredContacts = contacts?.filter((contact) =>
-      contact?.username
-         ?.toLowerCase()
-         .includes(searchTerms.toLowerCase())
-   );
+  const filteredContacts = contacts.filter((contact) =>
+    contact?.username
+      ?.toLowerCase()
+      .includes(searchTerms.toLowerCase())
+  );
 
-   return (
+  const getConversation = (contactId) => {
+    const list = conversations?.data || [];
+
+    return list.find((conversation) =>
+      conversation?.participants?.some(
+        (participant) =>
+          String(participant?._id || participant) ===
+          String(contactId)
+      )
+    );
+  };
+
+  return (
+    <div
+      className={`w-full border-r h-screen ${
+        theme === "dark"
+          ? "bg-[#111b21] border-gray-600"
+          : "bg-white border-gray-200"
+      }`}
+    >
       <div
-         className={`w-full border-r h-screen ${theme === "dark"
-            ? "bg-[rgb(17,27,33)] border-gray-600"
-            : "bg-white border-gray-200"
-            }`}
+        className={`p-4 flex justify-between items-center ${
+          theme === "dark" ? "text-white" : "text-gray-800"
+        }`}
       >
+        <h2 className="text-xl font-semibold">Chats</h2>
 
-         {/* HEADER */}
-         <div
-            className={`p-4 flex justify-between ${theme === "dark"
-               ? "text-white"
-               : "text-gray-800"
-               }`}
-         >
-            <h2 className="text-xl font-semibold">
-               Chats
-            </h2>
-
-            {/* PLUS BUTTON */}
-            <button
-               onClick={() => setShowAddUser(true)}
-               className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
-            >
-               <FaPlus />
-            </button>
-         </div>
-
-
-         {/* SEARCH */}
-         <div className="p-2">
-            <div className="relative">
-
-               <FaSearch
-                  className={`absolute left-3 top-1/3 transform-translate-y-1/2 ${theme === "dark"
-                     ? "text-gray-400"
-                     : "text-gray-800"
-                     }`}
-               />
-
-               <input
-                  type="text"
-                  placeholder="Search or start new chat"
-                  className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${theme === "dark"
-                     ? "bg-gray-800 text-white border-gray-200 placeholder-gray-500"
-                     : "bg-gray-100 text-black border-gray-200 placeholder-gray-400"
-                     }`}
-                  value={searchTerms}
-                  onChange={(e) =>
-                     setSearchTerms(e.target.value)
-                  }
-               />
-
-            </div>
-         </div>
-
-
-         {/* CONTACT LIST */}
-         <div className="overflow-y-auto h-[calc(100vh-120px)]">
-            {filteredContacts?.map((contact) => {
-               const contactId = String(contact?._id || "");
-               const conversationId = String(contact?.conversation?._id || "");
-
-               const isOnline =
-                  onlineUsers.get(contactId)?.isOnline === true;
-
-               const isTyping =
-                  typingUsers.get(conversationId)?.has(contactId) === true;
-
-               const lastMessageDate =
-                  contact?.conversation?.lastMessage?.createdAt;
-               const lastSeen = contact?.lastSeen;
-
-               const hasValidLastSeen = lastSeen &&
-                  !Number.isNaN(new Date(lastSeen).getTime());
-
-               const hasValidDate =
-                  lastMessageDate &&
-                  !Number.isNaN(new Date(lastMessageDate).getTime());
-
-               return (
-                  <motion.div
-                     key={contact?._id}
-                     onClick={() =>
-                        setSelectedContact(contact)
-                     }
-                     className={`p-3 flex items-center cursor-pointer ${theme === "dark"
-                        ? selectedContact?._id === contact?._id
-                           ? "bg-gray-700"
-                           : "hover:bg-gray-800"
-                        : selectedContact?._id === contact?._id
-                           ? "bg-gray-200"
-                           : "hover:bg-gray-100"
-                        }`}
-                  >
-
-                     <img
-                        src={contact?.profilePicture}
-                        alt={contact?.username}
-                        className="w-12 h-12 rounded-full"
-                     />
-
-                     <div className="ml-3 flex-1">
-
-                        <div className="flex justify-between items-center">
-                           <h2
-                              className={`font-semibold ${theme === "dark" ? "text-white" : "text-black"
-                                 }`}
-                           >
-                              {contact?.username}
-                           </h2>
-
-                           {isOnline ? (
-                              <span className="text-xs text-green-500 font-medium">
-                                 online
-                              </span>
-                           ) : hasValidLastSeen ? (
-                              <span
-                                 className={`text-xs ${theme === "dark" ? "text-gray-400" : "text-gray-500"
-                                    }`}
-                              >
-                                 Last seen {formatTimestamp(lastSeen)}
-                              </span>
-                           ) : (
-                              <span className="text-xs text-gray-400">
-                                 Offline
-                              </span>
-                           )}
-                        </div>
-
-
-                        <div className="flex justify-between items-baseline">
-
-                           <p
-                              className={`text-sm truncate ${isTyping
-                                 ? "text-green-500 font-medium"
-                                 : theme === "dark"
-                                    ? "text-gray-400"
-                                    : "text-gray-500"
-                                 }`}
-                           >
-                              {isTyping
-                                 ? "typing..."
-                                 : contact?.conversation?.lastMessage?.content || ""}
-                           </p>
-
-                           {contact?.conversation &&
-                              contact?.conversation?.unreadCount > 0 &&
-                              contact?.conversation?.lastMessage?.receiver ===
-                              user?._id && (
-
-                                 <p
-                                    className={`text-sm font-semibold w-6 h-6 flex items-center justify-center bg-yellow-500 ${theme === "dark"
-                                       ? "text-gray-800"
-                                       : "text-gray-500"
-                                       } rounded-full`}
-                                 >
-                                    {contact?.conversation?.unreadCount}
-                                 </p>
-                              )}
-
-                        </div>
-
-                     </div>
-
-                  </motion.div>
-               );
-            })}
-         </div>
-
-
-         {/* ADD USER POPUP */}
-         {showAddUser && (
-            <AddUser
-               theme={theme}
-               onClose={() => setShowAddUser(false)}
-               onUserSelect={(newUser) => {
-
-                  const existingConversation =
-                     conversations?.data?.find((conv) =>
-                        conv.participants?.some(
-                           (participant) =>
-                              participant?._id === newUser?._id
-                        )
-                     );
-
-                  if (existingConversation) {
-                     setSelectedContact({
-                        ...newUser,
-                        conversation: existingConversation
-                     });
-                  } else {
-                     setSelectedContact(newUser);
-                  }
-
-                  setShowAddUser(false);
-
-               }}
-            />
-         )}
-
-         {showUserProfile && (
-            <UserProfile
-               onClose={() => setShowUserProfile(false)}
-            />
-         )}
+        <button
+          type="button"
+          onClick={() => setShowAddUser(true)}
+          className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600"
+        >
+          <FaPlus />
+        </button>
       </div>
 
-   );
+      <div className="p-2">
+        <div className="relative">
+          <FaSearch
+            className={`absolute left-3 top-1/2 -translate-y-1/2 ${
+              theme === "dark"
+                ? "text-gray-400"
+                : "text-gray-800"
+            }`}
+          />
+
+          <input
+            type="text"
+            placeholder="Search or start new chat"
+            className={`w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-green-500 ${
+              theme === "dark"
+                ? "bg-gray-800 text-white border-gray-600 placeholder-gray-500"
+                : "bg-gray-100 text-black border-gray-200 placeholder-gray-400"
+            }`}
+            value={searchTerms}
+            onChange={(e) => setSearchTerms(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="overflow-y-auto h-[calc(100vh-120px)]">
+        {filteredContacts.length === 0 ? (
+          <p className="text-center text-sm text-gray-500 mt-8 px-4">
+            {searchTerms
+              ? "No users found."
+              : "No contacts available. Add someone to start chatting."}
+          </p>
+        ) : (
+          filteredContacts.map((contact) => {
+            const contactId = String(contact?._id || "");
+            const conversation = getConversation(contactId);
+
+            const isOnline =
+              onlineUsers?.get?.(contactId)?.isOnline === true;
+
+            const isTyping =
+              typingUsers?.get?.(String(conversation?._id || ""))?.has?.(
+                contactId
+              ) === true;
+
+            const lastSeen = contact?.lastSeen;
+            const validLastSeen =
+              lastSeen &&
+              !Number.isNaN(new Date(lastSeen).getTime());
+
+            const isSelected =
+              String(selectedContact?._id) === contactId;
+
+            return (
+              <motion.div
+                key={contactId}
+                whileTap={{ scale: 0.99 }}
+                onClick={() =>
+                  setSelectedContact({
+                    ...contact,
+                    conversation,
+                  })
+                }
+                className={`p-3 flex items-center cursor-pointer ${
+                  theme === "dark"
+                    ? isSelected
+                      ? "bg-gray-700"
+                      : "hover:bg-gray-800"
+                    : isSelected
+                      ? "bg-gray-200"
+                      : "hover:bg-gray-100"
+                }`}
+              >
+                {contact?.profilePicture ? (
+                  <img
+                    src={contact.profilePicture}
+                    alt={contact?.username || "User"}
+                    className="w-12 h-12 rounded-full object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center shrink-0">
+                    <FaUser className="text-gray-600 text-lg" />
+                  </div>
+                )}
+
+                <div className="ml-3 flex-1 min-w-0">
+                  <div className="flex justify-between items-center gap-2">
+                    <h2
+                      className={`font-semibold truncate ${
+                        theme === "dark"
+                          ? "text-white"
+                          : "text-black"
+                      }`}
+                    >
+                      {contact?.username || "User"}
+                    </h2>
+
+                    {isOnline ? (
+                      <span className="text-xs text-green-500 shrink-0">
+                        Online
+                      </span>
+                    ) : validLastSeen ? (
+                      <span
+                        className={`text-xs shrink-0 ${
+                          theme === "dark"
+                            ? "text-gray-400"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {formatTimestamp(lastSeen)}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400 shrink-0">
+                        Offline
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center gap-2 mt-1">
+                    <p
+                      className={`text-sm truncate ${
+                        isTyping
+                          ? "text-green-500 font-medium"
+                          : theme === "dark"
+                            ? "text-gray-400"
+                            : "text-gray-500"
+                      }`}
+                    >
+                      {isTyping
+                        ? "typing..."
+                        : conversation?.lastMessage?.content || ""}
+                    </p>
+
+                    {conversation?.unreadCount > 0 && (
+                      <span className="text-xs font-semibold w-5 h-5 flex items-center justify-center bg-green-500 text-white rounded-full shrink-0">
+                        {conversation.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })
+        )}
+      </div>
+
+      {showAddUser && (
+        <AddUser
+          theme={theme}
+          onClose={() => setShowAddUser(false)}
+          onUserSelect={(newUser) => {
+            const existingConversation = getConversation(newUser?._id);
+
+            setSelectedContact({
+              ...newUser,
+              conversation: existingConversation || null,
+            });
+
+            setShowAddUser(false);
+          }}
+        />
+      )}
+    </div>
+  );
 }
 
 export default ChatList;

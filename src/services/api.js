@@ -1,36 +1,42 @@
-
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL,
+  baseURL:
+    import.meta.env.VITE_BACKEND_URL ||
+    "http://localhost:5000",
   withCredentials: true,
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
-API.interceptors.request.use(
-  (config) => {
-    const token =
-      localStorage.getItem("token") ||
-      localStorage.getItem("accessToken");
+API.interceptors.request.use((config) => {
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken");
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
 
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  if (
+    typeof FormData !== "undefined" &&
+    config.data instanceof FormData
+  ) {
+    delete config.headers["Content-Type"];
+    delete config.headers["content-type"];
+  }
+
+  return config;
+});
 
 API.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error(
       "API ERROR:",
-      error.response?.data || error.message
+      error.response?.data?.message ||
+        error.message
     );
+
     return Promise.reject(error);
   }
 );

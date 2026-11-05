@@ -48,7 +48,7 @@ function App() {
 
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<HomePage />} />
-            <Route path="/user-Profile" element={<UserDetail />} />
+            <Route path="/user-profile" element={<UserDetail />} />
             <Route path="/setting" element={<Setting />} />
             <Route path="/status" element={<Status />} />
           </Route>

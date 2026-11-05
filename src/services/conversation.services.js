@@ -1,8 +1,11 @@
 
 import API from "./api";
 
-export const createConversation = async (payload) => {
-  const { data } = await API.post("/conversations/create", payload);
+export const createConversation = async (receiverId) => {
+  const { data } = await API.post("/conversations/create", {
+    receiverId,
+  });
+
   return data;
 };
 

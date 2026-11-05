@@ -1,10 +1,13 @@
-
 import API from "./api";
 
 export const registerUser = async (userData) => {
-  const { data } = await API.post("/auth/register", userData);
+  const { data } = await API.post("/auth/register", {
+    username: userData.username,
+    email: userData.email,
+    password: userData.password,
+  });
 
-  if (data.token) {
+  if (data?.token) {
     localStorage.setItem("token", data.token);
   }
 
@@ -12,9 +15,12 @@ export const registerUser = async (userData) => {
 };
 
 export const loginUser = async (credentials) => {
-  const { data } = await API.post("/auth/login", credentials);
+  const { data } = await API.post("/auth/login", {
+    email: credentials.email,
+    password: credentials.password,
+  });
 
-  if (data.token) {
+  if (data?.token) {
     localStorage.setItem("token", data.token);
   }
 
@@ -36,35 +42,27 @@ export const logoutUser = async () => {
   }
 };
 
-export const sendOtp = async (payload) => {
-  const { data } = await API.post("/auth/send-otp", payload);
-  return data;
-};
-
-export const verifyOtp = async (payload) => {
-  const { data } = await API.post("/auth/verify-otp", payload);
-  return data;
-};
-
-export const updateProfile = async (formData) => {
-  const { data } = await API.put("/auth/update-profile", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-
-  return data;
-};
-
 export const getAllUsers = async () => {
   const { data } = await API.get("/auth/users");
   return data;
 };
 
-export const searchUsers = async (query) => {
-  const { data } = await API.get("/auth/search-user", {
-    params: { query },
-  });
+export const searchUsers = async (email) => {
+  const { data } = await API.get(
+    "/auth/search-user",
+    {
+      params: { email },
+    }
+  );
+
+  return data;
+};
+
+export const updateProfile = async (formData) => {
+  const { data } = await API.put(
+    "/auth/update-profile",
+    formData
+  );
 
   return data;
 };

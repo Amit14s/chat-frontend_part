@@ -7,7 +7,8 @@ import {
     FaCamera,
     FaMoon,
     FaBell,
-    FaLock
+    FaLock,
+    FaUser
 } from "react-icons/fa";
 
 import { useNavigate } from "react-router-dom";
@@ -126,16 +127,23 @@ function UserProfile() {
 
 const handleLogout = async () => {
     try {
-        const res = await logoutUser();
+        await logoutUser();
 
-        if (res.status === "success") {
-            clearUser();
-            cleanup();
-            disconnectSocket();
-            navigate("/user-login", { replace: true });
-        }
+        clearUser();
+        cleanup();
+        disconnectSocket();
+
+        navigate("/user-login", { replace: true });
     } catch (error) {
         console.error("Logout failed:", error);
+
+        // The local session should still be cleared if the server
+        // has already invalidated the cookie.
+        clearUser();
+        cleanup();
+        disconnectSocket();
+
+        navigate("/user-login", { replace: true });
     }
 };
 
@@ -192,30 +200,29 @@ const handleLogout = async () => {
 
                     <div className="relative">
 
-                        {preview ? (
-
-                            <img
-                                src={preview}
-                                alt={user?.username}
-                                className="w-32 h-32 rounded-full object-cover"
-                            />
-
-                        ) : (
-
-                            <div
-                                className={`w-32 h-32 rounded-full flex items-center justify-center text-5xl font-semibold ${
-                                    theme === "dark"
-                                        ? "bg-[#29466f] text-white"
-                                        : "bg-[#cfe0f5] text-gray-800"
-                                }`}
-                            >
-                                {user?.username
-                                    ?.charAt(0)
-                                    ?.toUpperCase()}
-                            </div>
-
-                        )}
-
+                       {preview ? (
+    <img
+        src={preview}
+        alt={user?.username || "Profile"}
+        className="w-32 h-32 rounded-full object-cover"
+    />
+) : (
+    <div
+        className={`w-32 h-32 rounded-full flex items-center justify-center ${
+            theme === "dark"
+                ? "bg-[#29466f]"
+                : "bg-[#cfe0f5]"
+        }`}
+    >
+        <FaUser
+            className={`text-5xl ${
+                theme === "dark"
+                    ? "text-gray-300"
+                    : "text-gray-500"
+            }`}
+        />
+    </div>
+)}
 
                         {edit && (
 

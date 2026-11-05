@@ -1,8 +1,12 @@
 
 import API from "./api";
 
-export const createGroup = async (payload) => {
-  const { data } = await API.post("/groups/create", payload);
+export const createGroup = async (groupName, members) => {
+  const { data } = await API.post("/groups/create", {
+    groupName,
+    members,
+  });
+
   return data;
 };
 
@@ -16,11 +20,12 @@ export const getGroupDetails = async (groupId) => {
   return data;
 };
 
-export const addGroupMember = async (groupId, payload) => {
+export const addGroupMember = async (groupId, memberId) => {
   const { data } = await API.post(
     `/groups/${groupId}/members`,
-    payload
+    { memberId }
   );
+
   return data;
 };
 
@@ -28,5 +33,6 @@ export const removeGroupMember = async (groupId, memberId) => {
   const { data } = await API.delete(
     `/groups/${groupId}/members/${memberId}`
   );
+
   return data;
 };

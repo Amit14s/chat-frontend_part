@@ -1,4 +1,3 @@
-
 import { io } from "socket.io-client";
 import useUserStore from "../store/useUserStore";
 
@@ -6,22 +5,48 @@ let socket = null;
 
 export const initializeSocket = () => {
     const user = useUserStore.getState().user;
+    const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("accessToken");
 
-    if (!user?._id) return null;
+    if (!user?._id) {
+        console.error("Cannot connect socket: user not logged in");
+        return null;
+    }
 
-    if (socket?.connected) return socket;
+    if (!token) {
+        console.error("Cannot connect socket: JWT token missing");
+        return null;
+    }
 
+    // Reuse an existing connected socket
+    if (socket?.connected) {
+        return socket;
+    }
+
+    // Reconnect an existing socket
     if (socket) {
+        socket.auth = { token };
         socket.connect();
         return socket;
     }
 
-    socket = io(import.meta.env.VITE_BACKEND_URL, {
+    const BACKEND_URL =
+        import.meta.env.VITE_BACKEND_URL ||
+        "http://localhost:5000";
+
+    socket = io(BACKEND_URL, {
+        auth: {
+            token,
+        },
+
         withCredentials: true,
+
         transports: ["websocket", "polling"],
+
         reconnection: true,
         reconnectionAttempts: 10,
-        reconnectionDelay: 1000
+        reconnectionDelay: 1000,
     });
 
     socket.on("connect", () => {
@@ -44,7 +69,10 @@ export const initializeSocket = () => {
 };
 
 export const getSocket = () => {
-    if (!socket) return initializeSocket();
+    if (!socket) {
+        return initializeSocket();
+    }
+
     return socket;
 };
 
