@@ -386,6 +386,20 @@ const user = userStore?.user || userStore;
             selectedContact?._id
         );
 
+        // Include the existing conversation ID when this chat already exists.
+        const existingConversation = Array.isArray(conversations?.data)
+            ? conversations.data.find((conv) =>
+                Array.isArray(conv.participants) &&
+                conv.participants.some((participant) =>
+                    String(participant?._id || participant) === String(selectedContact?._id)
+                )
+            )
+            : null;
+
+        if (existingConversation?._id) {
+            formData.append("conversationId", existingConversation._id);
+        }
+
         if (message.trim()) {
             formData.append(
                 "content",
@@ -1211,26 +1225,14 @@ const user = userStore?.user || userStore;
                                         "
                                     >
 
-                                        {msgs
-                                            .filter(
-                                                (msg) =>
-                                                    msg.conversation ===
-                                                    selectedContact
-                                                        ?.conversation
-                                                        ?._id
-                                            )
-                                            .map(
-                                                (msg) => (
-
-                                                    <MessageBubble
-                                                      key={msg._id || msg.tempId}
-                                                        message={msg}
-                                                        theme={theme}
-                                                        currentUser={user}
-                                                    />
-
-                                                )
-                                            )}
+                                        {msgs.map((msg) => (
+                                            <MessageBubble
+                                                key={msg._id || msg.tempId}
+                                                message={msg}
+                                                theme={theme}
+                                                currentUser={user}
+                                            />
+                                        ))}
 
                                     </div>
 

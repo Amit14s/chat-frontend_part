@@ -7,7 +7,7 @@ const getId = (value) => {
     if (!value) return null;
     return String(typeof value === "object" ? value._id : value);
 };
-
+let messagesRequestId = 0;
 export const useChatStore = create((set, get) => ({
     conversation: [],
     conversations: [],
@@ -211,23 +211,33 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
-    fetchMessages: async (conversationId) => {
+fetchMessages: async (conversationId) => {
     if (!conversationId) return null;
 
-    set({ loading: true, error: null });
+    const requestId = ++messagesRequestId;
+
+    set({
+        loading: true,
+        error: null,
+        messages: [],
+        currentConversation: conversationId
+    });
 
     try {
         const { data } = await axiosInstance.get(
             `/chats/conversations/${conversationId}/messages`
         );
 
-        const result = data?.data ?? data;
+        const responseData = data?.data ?? data;
 
-        const messages = Array.isArray(result)
-            ? result
-            : Array.isArray(result?.messages)
-                ? result.messages
+        const messages = Array.isArray(responseData)
+            ? responseData
+            : Array.isArray(responseData?.messages)
+                ? responseData.messages
                 : [];
+
+        // Ignore responses belonging to an older selected conversation.
+        if (requestId !== messagesRequestId) return null;
 
         set({
             messages,
@@ -235,15 +245,20 @@ export const useChatStore = create((set, get) => ({
             loading: false
         });
 
-        await get().maskMessagesAsRead();
+        get().maskMessagesAsRead();
 
         return messages;
-    } catch (error) {
-        set({
-            loading: false,
-            error: error.response?.data?.message || error.message
-        });
 
+    } catch (error) {
+        if (requestId === messagesRequestId) {
+            set({
+                messages: [],
+                loading: false,
+                error: error.response?.data?.message || error.message
+            });
+        }
+
+        console.error("Fetch messages error:", error);
         return null;
     }
 },
