@@ -388,17 +388,7 @@ function MessageBubble({
                     </button>
 
 
-                   {message?.isDeleted ? (
-    <p className="text-sm italic opacity-60">
-        This message was deleted
-    </p>
-) : (
-    message?.content && (
-        <p className="text-sm sm:text-[15px] whitespace-pre-wrap break-words leading-5">
-            {message.content}
-        </p>
-    )
-)}
+                    {/* DELETE */}
 
                     {isSender && (
                         <button
